@@ -2,7 +2,7 @@
 
 ## Compiti
 
-1 - [Visualizzazione della posizione attuale della ISS](https...)
+1 - [Visualizzazione della posizione attuale della ISS](http://127.0.0.1:5500/esercizi/index.html)
 
 2 - [Visualizzazione della posizione dei satelliti](https...)
 
