@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISS 3D Tracker - B&W Edition</title>
+    
+    <script src="//unpkg.com/globe.gl"></script>
+    
+    <style>
+        body { 
+            margin: 0; 
+            background-color: #000; 
+            color: #fff; 
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+        }
+
+        /* Card in alto a sinistra */
+        #iss-card {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #fff;
+            padding: 20px;
+            width: 250px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.1);
+        }
+
+        .label { color: #888; font-size: 0.8rem; margin-bottom: 5px; }
+        .value { font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        
+        h2 { margin: 0 0 15px 0; font-size: 1rem; border-bottom: 1px solid #fff; padding-bottom: 5px; }
+
+        /* Effetto Scanline opzionale per stile retro-futurista */
+        #iss-card::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="iss-card">
+        <h2>ISS LIVE TELEMETRY</h2>
+        <div class="label">Latitudine</div>
+        <div id="lat" class="value">0.0000</div>
+        
+        <div class="label">Longitudine</div>
+        <div id="lon" class="value">0.0000</div>
+        
+        <div class="label">Altitudine Media</div>
+        <div class="value">~420 KM</div>
+        
+        <div class="label">Velocità Orbitale</div>
+        <div class="value">~27,600 KM/H</div>
+        
+        <div id="status" style="font-size: 0.6rem; color: #555;">Sincronizzazione segnale...</div>
+    </div>
+
+    <div id="globeViz"></div>
+
+    <script>
+        // Inizializzazione del globo
+        const world = Globe()
+            (document.getElementById('globeViz'))
+            .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg') // Texture scura
+            .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+            .backgroundColor('#000000')
+            .showAtmosphere(true)
+            .atmosphereColor('#ffffff')
+            .atmosphereAltitude(0.15);
+
+        // Configurazione estetica Bianco e Nero
+        world.controls().autoRotate = true;
+        world.controls().autoRotateSpeed = 0.5;
+
+        // Elemento per la ISS (un piccolo cerchio luminoso)
+        const issData = [{ lat: 0, lng: 0, name: 'ISS' }];
+        
+        world.pointsData(issData)
+            .pointColor(() => '#ffffff')
+            .pointAltitude(0.07) // Sollevata dalla superficie
+            .pointRadius(0.5)
+            .pointsTransitionDuration(2000);
+
+        async function updateISS() {
+            try {
+                const res = await fetch('https://api.open-notify.org/iss-now.json');
+                const { iss_position } = await res.json();
+                const lat = parseFloat(iss_position.latitude);
+                const lon = parseFloat(iss_position.longitude);
+
+                // Aggiorna il globo
+                world.pointsData([{ lat, lng: lon, name: 'ISS' }]);
+
+                // Aggiorna la Card
+                document.getElementById('lat').innerText = lat.toFixed(4);
+                document.getElementById('lon').innerText = lon.toFixed(4);
+                document.getElementById('status').innerText = "LIVE - " + new Date().toLocaleTimeString();
+
+            } catch (err) {
+                console.error("Errore API:", err);
+            }
+        }
+
+        // Update ogni 3 secondi
+        setInterval(updateISS, 3000);
+        updateISS();
+
+        // Adatta al ridimensionamento finestra
+        window.addEventListener('resize', () => {
+            world.width(window.innerWidth);
+            world.height(window.innerHeight);
+        });
+    </script>
+</body>
+</html>
