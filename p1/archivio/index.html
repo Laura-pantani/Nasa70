@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Hubble Interactive Archive</title>
+<style>
+  @font-face {
+    font-family: "Komunal Mono";
+    src: url("../New project/fonts/pnakomunalmonodemo-medium.ttf") format("truetype");
+    font-weight: 800;
+    font-style: normal;
+  }
+
+  :root {
+    --bg: #000;
+    --fg: rgba(255, 255, 255, 0.92);
+    --muted: rgba(255, 255, 255, 0.62);
+    --line: rgba(255, 255, 255, 0.38);
+    --panel: rgba(10, 10, 10, 0.94);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", Arial, sans-serif;
+  }
+
+  body { position: relative; }
+
+  #scene-root,
+  canvas {
+    position: fixed;
+    inset: 0;
+  }
+
+  canvas {
+    display: block;
+    z-index: 0;
+  }
+
+  .frame {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    padding: 26px 0 18px;
+  }
+
+  .header {
+    position: absolute;
+    top: 26px;
+    left: 0;
+    right: 0;
+    padding: 0 56px;
+    text-align: center;
+  }
+
+  .back-link {
+    position: absolute;
+    top: 38px;
+    left: 30px;
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 28px;
+    line-height: 1;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.28);
+    pointer-events: stroke;
+    opacity: 0.4;
+    transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease, opacity 0.25s ease;
+  }
+
+  .back-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateX(-2px);
+    opacity: 1;
+  }
+
+  .title {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 300;
+    letter-spacing: 0.34em;
+    line-height: 0.95;
+    text-transform: uppercase;
+    font-family: "Komunal Mono", "Courier New", Courier, monospace;
+  }
+
+  .top-rule,
+  .bottom-rule,
+  .timeline-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0.5px;
+    background: var(--line);
+  }
+
+  .top-rule { top: 114px; }
+
+  #info-box {
+    position: absolute;
+    top: 124px;
+    left: 58px;
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.28;
+    letter-spacing: 0.02em;
+  }
+
+  #loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+    color: var(--muted);
+    font-size: 0.95rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .timeline-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 20px;
+    height: 80px;
+  }
+
+  .bottom-rule { top: 0; }
+
+  .timeline-track {
+    left: 21%;
+    right: 21%;
+    top: 38px;
+  }
+
+  .timeline-marker {
+    position: absolute;
+    top: 36px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .timeline-marker.start { left: calc(21% + 40px); }
+
+  .timeline-date {
+    position: absolute;
+    top: 52px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: left 0.3s ease-out, opacity 0.3s ease-out;
+    pointer-events: none;
+  }
+
+  .timeline-date.show { opacity: 1; }
+
+  .timeline-label {
+    position: absolute;
+    top: 30px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+  }
+
+  .timeline-label.start { left: 15%; }
+  .timeline-label.end { right: 14.5%; }
+
+  .bottom-divider {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Modal */
+  #modal {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95); z-index: 100; justify-content: center; align-items: center; padding: 40px;
+  }
+  #modal.open { display: flex; }
+  #modal-content {
+    max-width: min(1000px, 92vw);
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.45);
+  }
+  #modal-img { max-width: 100%; max-height: 70vh; display: block; margin: 0 auto; }
+  #modal-text { padding: 24px; }
+  
+  /* Stile migliorato per la X di chiusura */
+  #close-modal { 
+    position: absolute; top: 15px; right: 15px; 
+    font-size: 28px; cursor: pointer; color: white; 
+    background: rgba(0,0,0,0.6); width: 40px; height: 40px; 
+    display: flex; align-items: center; justify-content: center; 
+    border-radius: 50%; border: 1px solid rgba(255,255,255,0.3);
+    transition: all 0.3s; z-index: 110;
+  }
+  #close-modal:hover { background: #00aaff; color: black; border-color: #00aaff; }
+
+  @media (max-width: 900px) {
+    .frame { padding-top: 22px; }
+    .header { padding: 0 24px; }
+    .back-link {
+      top: 28px;
+      left: 24px;
+      width: 38px;
+      height: 38px;
+      font-size: 24px;
+    }
+    .title {
+      font-size: clamp(2rem, 9vw, 3rem);
+      letter-spacing: 0.2em;
+    }
+    .top-rule { top: 92px; }
+    #info-box {
+      top: 100px;
+      left: 24px;
+      font-size: 0.82rem;
+    }
+    .timeline-shell {
+      bottom: 14px;
+      height: 74px;
+    }
+    .timeline-track {
+      left: 18%;
+      right: 18%;
+    }
+    .timeline-label.start { left: 8%; }
+    .timeline-label.end { right: 8%; }
+    .timeline-marker.start { left: calc(18% + 24px); }
+  }
+</style>
+</head>
+<body>
+<div id="scene-root"></div>
+<a class="back-link" href="../New%20project/index.html#gallery" aria-label="Torna al capitolo archivio">&#8592;</a>
+<script src="database.js"></script>
+
+<script>
+  // Qui potrai usare la variabile HUBBLE_DB liberamente
+</script>
+<div class="frame">
+  <div class="header">
+    <h1 class="title">35 Years Of Images</h1>
+  </div>
+  <div class="top-rule"></div>
+  <div id="info-box">
+    <p>trascina per ruotare<br>Clicca una foto per ingrandire</p>
+  </div>
+  <div class="timeline-shell">
+    <div class="bottom-rule"></div>
+    <div class="timeline-track"></div>
+    <div class="timeline-marker start"></div>
+    <span class="timeline-date" id="hover-date"></span>
+    <span class="timeline-label start">1990</span>
+    <span class="timeline-label end">2025</span>
+    <div class="bottom-divider"></div>
+  </div>
+</div>
+
+<button class="category-btn sr-only active" onclick="loadTimeline(this)">Esplora Cronologia</button>
+<div id="loader">Caricamento spazio...</div>
+
+<div id="modal">
+  <div id="modal-content">
+    <span id="close-modal">&times;</span>
+    <img id="modal-img" src="">
+    <div id="modal-text">
+      <h2 id="modal-title"></h2>
+      <p id="modal-desc"></p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// --- SETUP SCENA ---
+const scene = new THREE.Scene();
+const universe = new THREE.Group();
+scene.add(universe);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 0.1;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('scene-root').appendChild(renderer.domElement);
+
+const loadingManager = new THREE.LoadingManager();
+loadingManager.onLoad = () => {
+  document.getElementById('loader').style.display = 'none';
+};
+const textureLoader = new THREE.TextureLoader(loadingManager);
+textureLoader.setCrossOrigin('anonymous');
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let imagesObjs = [];
+let isModalOpen = false;
+let originalMarkerLeft = null;
+let hoveredImageYear = null;
+
+// Stelle di sfondo
+const starGeo = new THREE.BufferGeometry();
+const starStaff = [];
+for(let i=0; i<8000; i++) {
+  starStaff.push((Math.random()-0.5)*1000, (Math.random()-0.5)*1000, (Math.random()-0.5)*1000);
+}
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starStaff, 3));
+universe.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.7})));
+
+// --- FUNZIONE CAMBIO CATEGORIA ---
+function loadTimeline(btn) {
+  // UI update
+  document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  document.getElementById('loader').style.display = 'block';
+
+  // Rimuovi vecchie immagini
+  imagesObjs.forEach(obj => universe.remove(obj));
+  imagesObjs = [];
+
+  const items = HUBBLE_DB.timeline;
+
+  items.forEach((item, i) => {
+    textureLoader.load(item.url, (texture) => {
+      const aspect = texture.image.width / texture.image.height;
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(12 * aspect, 12),
+        new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
+      );
+
+      const radius = 60;
+
+      // Converti RA (0-24 ore) e DEC (-90 a +90 gradi) in radianti
+      const raRad = (item.ra / 24) * Math.PI * 2;
+      const decRad = (item.dec * Math.PI) / 180;
+
+      // Coordinate sferiche -> Cartesiane (Y è l'asse verticale in Three.js)
+      const x = radius * Math.cos(decRad) * Math.sin(raRad);
+      const y = radius * Math.sin(decRad);
+      const z = -radius * Math.cos(decRad) * Math.cos(raRad);
+      
+      mesh.position.set(x, y, z);
+      mesh.lookAt(0, 0, 0);
+      
+      mesh.userData = { title: `Anno ${item.year}: ${item.title}`, desc: item.desc, url: item.url };
+      universe.add(mesh);
+      imagesObjs.push(mesh);
+    }, undefined, (err) => console.error("Errore caricamento:", item.url));
+  });
+}
+
+// Inizializzazione
+loadTimeline(document.querySelector('.category-btn'));
+
+// --- MODAL ---
+const modal = document.getElementById('modal');
+function openModal(data) {
+  isModalOpen = true;
+  document.getElementById('modal-img').src = data.url;
+  document.getElementById('modal-title').innerText = data.title;
+  document.getElementById('modal-desc').innerText = data.desc.substring(0, 500) + "...";
+  modal.classList.add('open');
+}
+document.getElementById('close-modal').onclick = () => { modal.classList.remove('open'); isModalOpen = false; };
+
+// Chiudi anche cliccando sullo sfondo (fuori dal contenuto)
+modal.onclick = (e) => {
+  if (e.target === modal) {
+    modal.classList.remove('open');
+    isModalOpen = false;
+  }
+};
+
+// --- INPUT ---
+let isDragging = false;
+let prevM = { x: 0, y: 0 };
+
+window.addEventListener('mousedown', () => isDragging = true);
+window.addEventListener('mouseup', (e) => {
+  isDragging = false;
+  if (Math.abs(e.clientX - prevM.x) < 5) {
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(imagesObjs);
+    if (hits.length > 0) openModal(hits[0].object.userData);
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  if (isDragging && !isModalOpen) {
+    universe.rotation.y += (e.clientX - prevM.x) * 0.005;
+    universe.rotation.x += (e.clientY - prevM.y) * 0.005;
+  }
+  prevM = { x: e.clientX, y: e.clientY };
+  
+  // Raycasting per rilevare se il mouse è sopra un'immagine
+// Funzione per calcolare la posizione del marker sulla timeline
+function updateTimelineMarker(yearNum) {
+  const marker = document.querySelector('.timeline-marker.start');
+  const dateLabel = document.getElementById('hover-date');
+  
+  // Calcola l'anno reale: anno 1 = 1991, anno 2 = 1992, ecc.
+  const realYear = 1990 + yearNum;
+  
+  // Timeline va da 1990 a 2025 (35 anni)
+  const timelineStart = 1990;
+  const timelineEnd = 2025;
+  const yearPercentage = (realYear - timelineStart) / (timelineEnd - timelineStart);
+  
+  // La timeline track va dal 21% al 79% (58% di larghezza)
+  // Il marker start è a 21% + 40px
+  const timelineTrackStart = 21; // percentuale
+  const timelineTrackWidth = 58; // percentuale (79 - 21)
+  const newLeftPercent = timelineTrackStart + (yearPercentage * timelineTrackWidth);
+  
+  // Salva la posizione originale se non è già salvata
+  if (originalMarkerLeft === null) {
+    originalMarkerLeft = marker.style.left || `calc(21% + 40px)`;
+  }
+  
+  marker.style.left = `${newLeftPercent}%`;
+  marker.style.transition = 'left 0.3s ease-out';
+
+  // Aggiorna l'etichetta della data
+  if (dateLabel) {
+    dateLabel.textContent = realYear;
+    dateLabel.style.left = `${newLeftPercent}%`;
+    dateLabel.classList.add('show');
+  }
+}
+
+// Funzione per ripristinare il marker alla posizione originale
+function resetTimelineMarker() {
+  const marker = document.querySelector('.timeline-marker.start');
+  const dateLabel = document.getElementById('hover-date');
+  marker.style.left = originalMarkerLeft || `calc(21% + 40px)`;
+  marker.style.transition = 'left 0.3s ease-out';
+  if (dateLabel) dateLabel.classList.remove('show');
+}
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(imagesObjs);
+  
+  if (hits.length > 0) {
+    const hoveredObj = hits[0].object;
+    // Estrai il numero dell'anno dal titolo (e.g., "Anno 1: ...")
+    const titleMatch = hoveredObj.userData.title.match(/Anno (\d+):/);
+    if (titleMatch) {
+      const yearNum = parseInt(titleMatch[1]);
+      updateTimelineMarker(yearNum);
+      hoveredImageYear = yearNum;
+    }
+  } else {
+    // Se il mouse non è sopra nessuna immagine, ripristina il marker originale
+    if (hoveredImageYear !== null) {
+      resetTimelineMarker();
+      hoveredImageYear = null;
+    }
+  }
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  if(!isModalOpen) {
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(imagesObjs);
+    document.body.style.cursor = hits.length > 0 ? 'pointer' : 'default';
+  }
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>

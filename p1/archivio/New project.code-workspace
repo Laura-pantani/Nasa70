@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../New project"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "idea 2"
+	}
+}
