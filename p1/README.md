@@ -1,4 +1,4 @@
-¨SUPSI 2026  
+SUPSI 2026  
 Corso d’interaction design, CV429.01  
 Docenti: A. Gysin, G. Profeta  
 
@@ -6,7 +6,7 @@ Progetto 1: La conquista dello spazio
 
 # Hubble space telescope
 Autore: Laura Pantani \
-[Titolo progetto](https://github.com/ixd-supsi/2026/tree/main/esempi/es06_array_7)
+[hubble space telescope](https://github.com/ixd-supsi/2026/tree/main/esempi/es06_array_7)
 
 
 ## Introduzione e tema
@@ -22,6 +22,8 @@ Al momento non sono stati individuati riferimenti progettuali specifici.
 ## Design dell’interfaccia e modalità di interazione
 Il progetto si sviluppa come una piattaforma documentativa dedicata alla storia di Hubble. In una prima fase, l’utente può esplorare contenuti informativi sul satellite e sulla sua evoluzione nel tempo. Successivamente, viene presentata una sezione di archivio che raccoglie una selezione di immagini dello spazio catturate da Hubble, consultabili in modo semplice e intuitivo.
 
+
+[<img src="doc/cards.gif" width="500" alt="Magic trick">]()
 
 
 ## Tecnologia usata
@@ -53,3 +55,5 @@ image.src = url;
 
 ## Target e contesto d’uso
 Il target del mio progetto sono i ragazzi e il possibile contesto d'uso é educativo e scolastico.
+
+[<img src="doc/munari.jpg" width="300" alt="Supplemento al dizionario italiano">]()
