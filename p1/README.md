@@ -6,7 +6,7 @@ Progetto 1: La conquista dello spazio
 
 # Hubble space telescope
 Autore: Laura Pantani \
-[hubble space telescope](https://github.com/ixd-supsi/2026/tree/main/esempi/es06_array_7)
+[hubble space telescope](https://laura-pantani.github.io/NASA-P1/p1/)
 
 
 ## Introduzione e tema
