@@ -141,8 +141,32 @@
     right: 0;
     bottom: 20px;
     height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+  }
+  .category-btn {
+    pointer-events: auto;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    color: var(--fg);
+    font-family: "Komunal Mono", monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0.7;
   }
 
+  .category-btn:hover, .category-btn.active {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.6);
+    opacity: 1;
+  }
   .bottom-rule { top: 0; }
 
   .timeline-track {
@@ -288,17 +312,16 @@
     <p>trascina per ruotare<br>Clicca una foto per ingrandire</p>
   </div>
   <div class="timeline-shell">
-    <div class="bottom-rule"></div>
-    <div class="timeline-track"></div>
-    <div class="timeline-marker start"></div>
-    <span class="timeline-date" id="hover-date"></span>
-    <span class="timeline-label start">1990</span>
-    <span class="timeline-label end">2025</span>
-    <div class="bottom-divider"></div>
+    <button class="category-btn active" onclick="loadCategory(this, 'tutte')">Tutte</button>
+    <button class="category-btn" onclick="loadCategory(this, 'nebulose')">Nebulose</button>
+    <button class="category-btn" onclick="loadCategory(this, 'galassie')">Galassie</button>
+    <button class="category-btn" onclick="loadCategory(this, 'pianeti')">Pianeti</button>
+    <button class="category-btn" onclick="loadCategory(this, 'stelle')">Stelle</button>
+    <button class="category-btn" onclick="loadCategory(this, 'ammassi')">Ammassi</button>
   </div>
 </div>
 
-<button class="category-btn sr-only active" onclick="loadTimeline(this)">Esplora Cronologia</button>
+
 <div id="loader">Caricamento spazio...</div>
 
 <div id="modal">
@@ -340,6 +363,7 @@ let imagesObjs = [];
 let isModalOpen = false;
 let originalMarkerLeft = null;
 let hoveredImageYear = null;
+let currentCategoryLoad = 0;
 
 // Stelle di sfondo
 const starGeo = new THREE.BufferGeometry();
@@ -351,20 +375,33 @@ starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starStaff, 3))
 universe.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.7})));
 
 // --- FUNZIONE CAMBIO CATEGORIA ---
-function loadTimeline(btn) {
+function loadCategory(btn, tag) {
+  const loadId = ++currentCategoryLoad;
+
   // UI update
   document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   document.getElementById('loader').style.display = 'block';
 
   // Rimuovi vecchie immagini
-  imagesObjs.forEach(obj => universe.remove(obj));
+  imagesObjs.forEach(obj => {
+    universe.remove(obj);
+    obj.geometry.dispose();
+    obj.material.map.dispose();
+    obj.material.dispose();
+  });
   imagesObjs = [];
 
-  const items = HUBBLE_DB.timeline;
+  const allItems = HUBBLE_DB.timeline;
+  const items = tag === 'tutte' ? allItems : allItems.filter(item => item.tags && item.tags.includes(tag));
 
   items.forEach((item, i) => {
     textureLoader.load(item.url, (texture) => {
+      if (loadId !== currentCategoryLoad) {
+        texture.dispose();
+        return;
+      }
+
       const aspect = texture.image.width / texture.image.height;
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(12 * aspect, 12),
@@ -385,7 +422,7 @@ function loadTimeline(btn) {
       mesh.position.set(x, y, z);
       mesh.lookAt(0, 0, 0);
       
-      mesh.userData = { title: `Anno ${item.year}: ${item.title}`, desc: item.desc, url: item.url };
+      mesh.userData = { title: `Anno ${item.year}: ${item.title}`, desc: item.desc, url: item.url, tags: item.tags };
       universe.add(mesh);
       imagesObjs.push(mesh);
     }, undefined, (err) => console.error("Errore caricamento:", item.url));
@@ -393,7 +430,7 @@ function loadTimeline(btn) {
 }
 
 // Inizializzazione
-loadTimeline(document.querySelector('.category-btn'));
+loadCategory(document.querySelector('.category-btn.active'), 'tutte');
 
 // --- MODAL ---
 const modal = document.getElementById('modal');
@@ -401,7 +438,8 @@ function openModal(data) {
   isModalOpen = true;
   document.getElementById('modal-img').src = data.url;
   document.getElementById('modal-title').innerText = data.title;
-  document.getElementById('modal-desc').innerText = data.desc.substring(0, 500) + "...";
+  const tagsText = data.tags ? `Tag: ${data.tags.join(', ')}` : '';
+  document.getElementById('modal-desc').innerText = data.desc.substring(0, 400) + "..." + (tagsText ? `\n\n${tagsText}` : '');
   modal.classList.add('open');
 }
 document.getElementById('close-modal').onclick = () => { modal.classList.remove('open'); isModalOpen = false; };
@@ -418,8 +456,12 @@ modal.onclick = (e) => {
 let isDragging = false;
 let prevM = { x: 0, y: 0 };
 
-window.addEventListener('mousedown', () => isDragging = true);
+window.addEventListener('mousedown', (e) => {
+  if (e.target.closest('.category-btn')) return;
+  isDragging = true;
+});
 window.addEventListener('mouseup', (e) => {
+  if (e.target.closest('.category-btn')) return;
   isDragging = false;
   if (Math.abs(e.clientX - prevM.x) < 5) {
     raycaster.setFromCamera(mouse, camera);
@@ -442,6 +484,7 @@ window.addEventListener('mousemove', (e) => {
 function updateTimelineMarker(yearNum) {
   const marker = document.querySelector('.timeline-marker.start');
   const dateLabel = document.getElementById('hover-date');
+  if (!marker) return;
   
   // Calcola l'anno reale: anno 1 = 1991, anno 2 = 1992, ecc.
   const realYear = 1990 + yearNum;
@@ -477,6 +520,7 @@ function updateTimelineMarker(yearNum) {
 function resetTimelineMarker() {
   const marker = document.querySelector('.timeline-marker.start');
   const dateLabel = document.getElementById('hover-date');
+  if (!marker) return;
   marker.style.left = originalMarkerLeft || `calc(21% + 40px)`;
   marker.style.transition = 'left 0.3s ease-out';
   if (dateLabel) dateLabel.classList.remove('show');
